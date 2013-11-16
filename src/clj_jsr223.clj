@@ -33,16 +33,10 @@
               [ns name] (if (= 2 (count parts)) (map symbol parts) ['user (symbol (first parts))])]
           (create-ns ns)
           (intern ns name v))))
-    (let [current-ns *ns*
-          new-ns (create-ns (symbol (str "user-" nspace)))]
-      (in-ns (.getName new-ns))
-      (use 'clojure.core)
-      (try
-        (binding [*out* (-> (.getContext self) (.getWriter))
-                  *err* (-> (.getContext self) (.getErrorWriter))]
-          (eval (read-string script)))
-        (finally
-          (in-ns (.getName current-ns))))))
+    (binding [*ns* (create-ns (symbol (str "user-" nspace))) 
+              *out* (-> (.getContext self) (.getWriter))
+              *err* (-> (.getContext self) (.getErrorWriter))]
+      (eval (read-string script))))
   (eval ^Object [self ^String script ^ScriptContext ctx] (.eval self script (.getBindings ctx)))
   (eval ^Object [self ^java.io.Reader script] (.eval self (slurp script)))
   (eval ^Object [self ^java.io.Reader script ^Bindings binds] (.eval self (slurp script) binds))
