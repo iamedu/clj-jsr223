@@ -33,9 +33,10 @@
               [ns name] (if (= 2 (count parts)) (map symbol parts) ['user (symbol (first parts))])]
           (create-ns ns)
           (intern ns name v))))
-    (binding [*ns* (create-ns (symbol (str "user-" nspace))) 
+    (binding [*ns* (create-ns (symbol (str "user-" (subs nspace 30)))) 
               *out* (-> (.getContext self) (.getWriter))
               *err* (-> (.getContext self) (.getErrorWriter))]
+      (eval '(clojure.core/use 'clojure.core))
       (eval (read-string script))))
   (eval ^Object [self ^String script ^ScriptContext ctx] (.eval self script (.getBindings ctx)))
   (eval ^Object [self ^java.io.Reader script] (.eval self (slurp script)))
