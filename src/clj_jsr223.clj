@@ -13,9 +13,10 @@
 (ns ^{:author "Eduardo Julián <eduardoejp@gmail.com>",
       :doc "Clojure implementations of the ScriptEngine and ScriptEngineFactory interfaces."}
   clj-jsr223
-  (:import (javax.script Bindings ScriptContext)))
+  (:import (javax.script Bindings ScriptContext)
+           (java.util UUID)))
 
-(deftype ClojureScriptEngine [factory context]
+(deftype ClojureScriptEngine [factory context nspace]
   javax.script.ScriptEngine
   (getFactory [_] factory)
   (getContext [_] @context)
@@ -32,9 +33,16 @@
               [ns name] (if (= 2 (count parts)) (map symbol parts) ['user (symbol (first parts))])]
           (create-ns ns)
           (intern ns name v))))
-    (binding [*out* (-> (.getContext self) (.getWriter))
-              *err* (-> (.getContext self) (.getErrorWriter))]
-      (eval (read-string script))))
+    (let [current-ns *ns*
+          new-ns (create-ns (symbol (str "user-" nspace)))]
+      (in-ns (.getName new-ns))
+      (use 'clojure.core)
+      (try
+        (binding [*out* (-> (.getContext self) (.getWriter))
+                  *err* (-> (.getContext self) (.getErrorWriter))]
+          (eval (read-string script)))
+        (finally
+          (in-ns (.getName current-ns))))))
   (eval ^Object [self ^String script ^ScriptContext ctx] (.eval self script (.getBindings ctx)))
   (eval ^Object [self ^java.io.Reader script] (.eval self (slurp script)))
   (eval ^Object [self ^java.io.Reader script ^Bindings binds] (.eval self (slurp script) binds))
@@ -50,7 +58,8 @@
   (getExtensions [_] ["clj"])
   (getMimeTypes [_] ["application/clojure" "text/clojure"])
   (getNames [_] ["clojure" "Clojure"])
-  (getScriptEngine [self] (ClojureScriptEngine. self (atom (javax.script.SimpleScriptContext.))))
+  (getScriptEngine [self] (ClojureScriptEngine. self (atom (javax.script.SimpleScriptContext.))
+                                                (-> (UUID/randomUUID) (.toString))))
   (getOutputStatement [_ to-print] (str "(println \"" to-print "\")"))
   (getMethodCallSyntax [_ obj meth args] (str "(." meth " " obj " " (apply str (interpose " " (map pr-str args))) ")"))
   (getProgram [_ forms] (apply str (interleave forms (repeat \newline)))))
